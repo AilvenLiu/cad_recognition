@@ -1,60 +1,47 @@
-import { useEffect, useRef, useState } from "react";
-import ImageUpload from "./components/ImageUpload";
-import CodePreview from "./components/CodePreview";
-import Preview from "./components/Preview";
-import { generateCode } from "./generateCode";
-import Spinner from "./components/Spinner";
-import classNames from "classnames";
-import {
-  FaCode,
-  FaDesktop,
-  FaDownload,
-  FaMobile,
-  FaUndo,
-} from "react-icons/fa";
-
-import { Switch } from "./components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
-import SettingsDialog from "./components/SettingsDialog";
-import { AppState, CodeGenerationParams, EditorTheme, Settings } from "./types";
-import { IS_RUNNING_ON_CLOUD } from "./config";
-import { PicoBadge } from "./components/PicoBadge";
-import { OnboardingNote } from "./components/OnboardingNote";
+import React, { useState, createContext } from 'react';
+import { Route, Routes, Link } from 'react-router-dom';
+import { FaHome, FaFile, FaFileExport, FaCubes, FaFileCode, FaMagic, FaCog, FaQuestionCircle, FaBell } from "react-icons/fa";
+import { AppState, Settings } from "./types";
 import { usePersistedState } from "./hooks/usePersistedState";
-// import { UrlInputSection } from "./components/UrlInputSection";
-import TermsOfServiceDialog from "./components/TermsOfServiceDialog";
-import html2canvas from "html2canvas";
-import { USER_CLOSE_WEB_SOCKET_CODE } from "./constants";
-import CodeTab from "./components/CodeTab";
-import OutputSettingsSection from "./components/OutputSettingsSection";
-import { History } from "./components/history/history_types";
-import HistoryDisplay from "./components/history/HistoryDisplay";
-import { extractHistoryTree } from "./components/history/utils";
-import toast from "react-hot-toast";
-// import ImportCodeSection from "./components/ImportCodeSection";
 import { Stack } from "./lib/stacks";
 import { CodeGenerationModel } from "./lib/models";
-import ModelSettingsSection from "./components/ModelSettingsSection";
-import { extractHtml } from "./components/preview/extractHtml";
-import useBrowserTabIndicator from "./hooks/useBrowserTabIndicator";
-import TipLink from "./components/core/TipLink";
+import { EditorTheme } from "./types";
+import MainInterface from './components/MainInterface';
+import FileManagement from './components/FileManagement';
+import ExportManagement from './components/ExportManagement';
+import ModelManagement from './components/ModelManagement';
+import FormatManagement from './components/FormatManagement';
+import IntelligentOptimization from './components/IntelligentOptimization';
+import SettingsDialog from './components/SettingsDialog';
 
-const IS_OPENAI_DOWN = false;
+export interface AppContextType {
+  appState: AppState;
+  setAppState: React.Dispatch<React.SetStateAction<AppState>>;
+  generatedCode: string;
+  setGeneratedCode: React.Dispatch<React.SetStateAction<string>>;
+  inputMode: "image" | "pdf";
+  referenceImages: string[];
+  settings: Settings;
+  doUpdate: () => void;
+  regenerate: () => void;
+  downloadCode: () => void;
+  doCreate: (images: string[], mode: "image" | "pdf") => void;
+  updateInstruction: string;
+  setUpdateInstruction: React.Dispatch<React.SetStateAction<string>>;
+  shouldIncludeResultImage: boolean;
+  setShouldIncludeResultImage: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+export const AppContext = createContext<AppContextType | undefined>(undefined);
 
 function App() {
   const [appState, setAppState] = useState<AppState>(AppState.INITIAL);
   const [generatedCode, setGeneratedCode] = useState<string>("");
-
   const [inputMode, setInputMode] = useState<"image" | "pdf">("image");
-
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
-  const [executionConsole, setExecutionConsole] = useState<string[]>([]);
   const [updateInstruction, setUpdateInstruction] = useState("");
-  const [isImportedFromCode, setIsImportedFromCode] = useState<boolean>(false);
-
-  // Settings
+  const [shouldIncludeResultImage, setShouldIncludeResultImage] = useState(false);
+  
   const [settings, setSettings] = usePersistedState<Settings>(
     {
       openAiApiKey: null,
@@ -64,571 +51,148 @@ function App() {
       editorTheme: EditorTheme.COBALT,
       generatedCodeConfig: Stack.JPG,
       codeGenerationModel: CodeGenerationModel.GPT_4O_2024_05_13,
-      // Only relevant for hosted version
       isTermOfServiceAccepted: false,
     },
     "setting"
   );
 
-  // Code generation model from local storage or the default value
-  const selectedCodeGenerationModel =
-    settings.codeGenerationModel || CodeGenerationModel.GPT_4_VISION;
-
-  // App history
-  const [appHistory, setAppHistory] = useState<History>([]);
-  // Tracks the currently shown version from app history
-  const [currentVersion, setCurrentVersion] = useState<number | null>(null);
-
-  const [shouldIncludeResultImage, setShouldIncludeResultImage] =
-    useState<boolean>(false);
-
-  const wsRef = useRef<WebSocket>(null);
-  
-  const showReactWarning =
-    selectedCodeGenerationModel ===
-      CodeGenerationModel.GPT_4_TURBO_2024_04_09 &&
-    settings.generatedCodeConfig === Stack.JPG;
-
-  // Indicate coding state using the browser tab's favicon and title
-  useBrowserTabIndicator(appState === AppState.CODING);
-
-  // When the user already has the settings in local storage, newly added keys
-  // do not get added to the settings so if it's falsy, we populate it with the default
-  // value
-  useEffect(() => {
-    if (!settings.generatedCodeConfig) {
-      setSettings((prev) => ({
-        ...prev,
-        generatedCodeConfig: Stack.JSON,
-      }));
-    }
-  }, [settings.generatedCodeConfig, setSettings]);
-
- 
-
-
-
-  const takeScreenshot = async (): Promise<string> => {
-    const iframeElement = document.querySelector(
-      "#preview-desktop"
-    ) as HTMLIFrameElement;
-    if (!iframeElement?.contentWindow?.document.body) {
-      return "";
-    }
-
-    const canvas = await html2canvas(iframeElement.contentWindow.document.body);
-    const png = canvas.toDataURL("image/png");
-    return png;
+  const doCreate = (images: string[], mode: "image" | "pdf") => {
+    setReferenceImages(images);
+    setInputMode(mode);
+    setAppState(AppState.CODING);
+    // Implement the actual code generation logic here
   };
 
-  const downloadCode = () => {
-    // Create a blob from the generated code
-    const blob = new Blob([generatedCode], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-
-    // Create an anchor element and set properties for download
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "index.html"; // Set the file name for download
-    document.body.appendChild(a); // Append to the document
-    a.click(); // Programmatically click the anchor to trigger download
-
-    // Clean up by removing the anchor and revoking the Blob URL
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  const reset = () => {
-    setAppState(AppState.INITIAL);
-    setGeneratedCode("");
-    setReferenceImages([]);
-    setExecutionConsole([]);
-    setUpdateInstruction("");
-    setIsImportedFromCode(false);
-    setAppHistory([]);
-    setCurrentVersion(null);
-    setShouldIncludeResultImage(false);
+  const doUpdate = () => {
+    // Implement the update logic here
   };
 
   const regenerate = () => {
-    // if (currentVersion === null) {
-    //   toast.error(
-    //     "No current version set. Please open a Github issue as this shouldn't happen."
-    //   );
-    //   return;
-    // }
-
-    // // Retrieve the previous command
-    // const previousCommand = appHistory[currentVersion];
-    // if (previousCommand.type !== "ai_create") {
-    //   toast.error("Only the first version can be regenerated.");
-    //   return;
-    // }
-
-    // Re-run the create
     doCreate(referenceImages, inputMode);
   };
 
-  const cancelCodeGeneration = () => {
-    wsRef.current?.close?.(USER_CLOSE_WEB_SOCKET_CODE);
-    // make sure stop can correct the state even if the websocket is already closed
-    cancelCodeGenerationAndReset();
+  const downloadCode = () => {
+    // Implement the download logic here
   };
 
-  const previewCode =
-    inputMode === "pdf" && appState === AppState.CODING
-      ? extractHtml(generatedCode)
-      : generatedCode;
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const notifications = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const cancelCodeGenerationAndReset = () => {
-    // When this is the first version, reset the entire app state
-    if (currentVersion === null) {
-      reset();
-    } else {
-      // Otherwise, revert to the last version
-      setGeneratedCode(appHistory[currentVersion].code);
-      setAppState(AppState.CODE_READY);
-    }
+  const handleLogin = () => {
+    // Implement login logic here
+    setIsLoggedIn(true);
   };
 
-  function doGenerateCode(
-    params: CodeGenerationParams,
-    parentVersion: number | null
-  ) {
-    setExecutionConsole([]);
-    setAppState(AppState.CODING);
-
-    // Merge settings with params
-    const updatedParams = { ...params, ...settings };
-
-    generateCode(
-      wsRef,
-      updatedParams,
-      // On change
-      (token) => setGeneratedCode((prev) => prev + token),
-      // On set code
-      (code) => {
-        setGeneratedCode(code);
-        if (params.generationType === "create") {
-          setAppHistory([
-            {
-              type: "ai_create",
-              parentIndex: null,
-              code,
-              inputs: { image_url: referenceImages[0] },
-            },
-          ]);
-          setCurrentVersion(0);
-        } else {
-          setAppHistory((prev) => {
-            // Validate parent version
-            if (parentVersion === null) {
-              toast.error(
-                "No parent version set. Contact support or open a Github issue."
-              );
-              return prev;
-            }
-
-            const newHistory: History = [
-              ...prev,
-              {
-                type: "ai_edit",
-                parentIndex: parentVersion,
-                code,
-                inputs: {
-                  prompt: updateInstruction,
-                },
-              },
-            ];
-            setCurrentVersion(newHistory.length - 1);
-            return newHistory;
-          });
-        }
-      },
-      // On status update
-      (line) => setExecutionConsole((prev) => [...prev, line]),
-      // On cancel
-      () => {
-        cancelCodeGenerationAndReset();
-      },
-      // On complete
-      () => {
-        setAppState(AppState.CODE_READY);
-      }
-    );
-  }
-
-  // Initial version creation
-  function doCreate(referenceImages: string[], inputMode: "image" | "pdf") {
-    // Reset any existing state
-    reset();
-
-    setReferenceImages(referenceImages);
-    setInputMode(inputMode);
-    if (referenceImages.length > 0) {
-      doGenerateCode(
-        {
-          generationType: "create",
-          images: referenceImages,
-          inputMode,
-        },
-        currentVersion
-      );
-    }
-  }
-
-  // Subsequent updates
-  async function doUpdate() {
-    if (currentVersion === null) {
-      toast.error(
-        "No current version set. Contact support or open a Github issue."
-      );
-      return;
-    }
-
-    let historyTree;
-    try {
-      historyTree = extractHistoryTree(appHistory, currentVersion);
-    } catch {
-      toast.error(
-        "Version history is invalid. This shouldn't happen. Please contact support or open a Github issue."
-      );
-      return;
-    }
-
-    const updatedHistory = [...historyTree, updateInstruction];
-
-    if (shouldIncludeResultImage) {
-      const resultImage = await takeScreenshot();
-      doGenerateCode(
-        {
-          generationType: "update",
-          inputMode,
-          images: referenceImages,
-          resultImage: resultImage,
-          history: updatedHistory,
-          isImportedFromCode,
-        },
-        currentVersion
-      );
-    } else {
-      doGenerateCode(
-        {
-          generationType: "update",
-          inputMode,
-          images: referenceImages,
-          history: updatedHistory,
-          isImportedFromCode,
-        },
-        currentVersion
-      );
-    }
-
-    setGeneratedCode("");
-    setUpdateInstruction("");
-  }
-
-  const handleTermDialogOpenChange = (open: boolean) => {
-    setSettings((s) => ({
-      ...s,
-      isTermOfServiceAccepted: !open,
-    }));
+  const handleLogout = () => {
+    // Implement logout logic here
+    setIsLoggedIn(false);
   };
 
-  function setStack(stack: Stack) {
-    setSettings((prev) => ({
-      ...prev,
-      generatedCodeConfig: stack,
-    }));
-  }
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    // Implement search logic here
+  };
 
-  function setCodeGenerationModel(codeGenerationModel: CodeGenerationModel) {
-    setSettings((prev) => ({
-      ...prev,
-      codeGenerationModel,
-    }));
-  }
-
-  // function importFromCode(code: string, stack: Stack) {
-  //   setIsImportedFromCode(true);
-
-  //   // Set up this project
-  //   setGeneratedCode(code);
-  //   setStack(stack);
-  //   setAppHistory([
-  //     {
-  //       type: "code_create",
-  //       parentIndex: null,
-  //       code,
-  //       inputs: { code },
-  //     },
-  //   ]);
-  //   setCurrentVersion(0);
-
-  //   setAppState(AppState.CODE_READY);
-  // }
+  const handleNotificationClick = () => {
+    // Implement notification handling logic here
+  };
 
   return (
-    <div className="mt-2 dark:bg-black dark:text-white">
-      {IS_RUNNING_ON_CLOUD && <PicoBadge />}
-      {IS_RUNNING_ON_CLOUD && (
-        <TermsOfServiceDialog
-          open={!settings.isTermOfServiceAccepted}
-          onOpenChange={handleTermDialogOpenChange}
-        />
-      )}
-      <div className="lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-96 lg:flex-col">
-        <div className="flex grow flex-col gap-y-2 overflow-y-auto border-r border-gray-200 bg-white px-6 dark:bg-zinc-950 dark:text-white">
-          <div className="flex items-center justify-between mt-10 mb-2">
-            <h1 className="text-2xl ">CAD 识别系统</h1>
-            <SettingsDialog settings={settings} setSettings={setSettings} />
-          </div>
-
-          <OutputSettingsSection
-            stack={settings.generatedCodeConfig}
-            setStack={(config) => setStack(config)}
-            shouldDisableUpdates={
-              appState === AppState.CODING || appState === AppState.CODE_READY
-            }
-          />
-
-          <ModelSettingsSection
-            codeGenerationModel={selectedCodeGenerationModel}
-            setCodeGenerationModel={setCodeGenerationModel}
-            shouldDisableUpdates={
-              appState === AppState.CODING || appState === AppState.CODE_READY
-            }
-          />
-
-          {showReactWarning && (
-            <div className="text-sm bg-yellow-200 rounded p-2">
-              Sorry - React is not currently working with GPT-4 Turbo. Please
-              use GPT-4 Vision or Claude Sonnet. We are working on a fix.
-            </div>
-          )}
-
-          {/* {appState !== AppState.CODE_READY && <TipLink />} */}
-
-          {IS_RUNNING_ON_CLOUD && !settings.openAiApiKey && <OnboardingNote />}
-
-          {IS_OPENAI_DOWN && (
-            <div className="bg-black text-white dark:bg-white dark:text-black p-3 rounded">
-              OpenAI API is currently down. Try back in 30 minutes or later. We
-              apologize for the inconvenience.
-            </div>
-          )}
-
-          {(appState === AppState.CODING ||
-            appState === AppState.CODE_READY) && (
-            <>
-              {/* Show code preview only when coding */}
-              {appState === AppState.CODING && (
-                <div className="flex flex-col">
-                  {/* Speed disclaimer for video mode */}
-                  {inputMode === "pdf" && (
-                    <div
-                      className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700
-                    p-2 text-xs mb-4 mt-1"
-                    >
-                      Code generation from pdf can take 3-4 minutes. We do
-                      multiple passes to get the best result. Please be patient.
-                    </div>
+    <AppContext.Provider value={{
+      appState, setAppState, generatedCode, setGeneratedCode, inputMode, referenceImages,
+      settings, doUpdate, regenerate, downloadCode, doCreate,
+      updateInstruction, setUpdateInstruction,
+      shouldIncludeResultImage, setShouldIncludeResultImage
+    }}>
+      <div className="min-h-screen bg-gray-100 text-gray-900">
+        <div className="container mx-auto px-4 py-8">
+          <div className="bg-white shadow-md mb-8">
+            <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+              <h1 className="text-2xl font-bold text-blue-600">油气管道审图小助手</h1>
+              <div className="flex items-center space-x-4">
+                <input
+                  type="text"
+                  placeholder="搜索..."
+                  className="px-3 py-2 border rounded-md"
+                  value={searchQuery}
+                  onChange={(e) => handleSearch(e.target.value)}
+                />
+                <nav>
+                  <ul className="flex space-x-4">
+                    <li><Link to="/" className="text-gray-600 hover:text-blue-600">主页</Link></li>
+                    <li><Link to="/file-management" className="text-gray-600 hover:text-blue-600">文件管理</Link></li>
+                    <li><Link to="/export-management" className="text-gray-600 hover:text-blue-600">导出管理</Link></li>
+                    <li><Link to="/model-management" className="text-gray-600 hover:text-blue-600">模型管理</Link></li>
+                    <li><Link to="/format-management" className="text-gray-600 hover:text-blue-600">格式管理</Link></li>
+                    <li><Link to="/intelligent-optimization" className="text-gray-600 hover:text-blue-600">智能优化</Link></li>
+                  </ul>
+                </nav>
+                <button onClick={handleNotificationClick} className="text-gray-600 hover:text-blue-600">
+                  <FaBell />
+                  {notifications.length > 0 && (
+                    <span className="bg-red-500 text-white rounded-full px-2 py-1 text-xs absolute -mt-2 -mr-2">
+                      {notifications.length}
+                    </span>
                   )}
-
-                  <div className="flex items-center gap-x-1">
-                    <Spinner />
-                    {executionConsole.slice(-1)[0]}
-                  </div>
-
-                  <CodePreview code={generatedCode} />
-
-                  <div className="flex w-full">
-                    <Button
-                      onClick={cancelCodeGeneration}
-                      className="w-full dark:text-white dark:bg-gray-700"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {appState === AppState.CODE_READY && (
-                <div>
-                  <div className="grid w-full gap-2 hidden">
-                    <Textarea
-                      placeholder="请输入提示词..."
-                      onChange={(e) => setUpdateInstruction(e.target.value)}
-                      value={updateInstruction}
-                    />
-                    <div className="flex justify-between items-center gap-x-2">
-                      <div className="font-500 text-xs text-slate-700 dark:text-white hidden">
-                        Include screenshot of current version?
-                      </div>
-                      <Switch
-                        checked={shouldIncludeResultImage}
-                        onCheckedChange={setShouldIncludeResultImage}
-                        className="dark:bg-gray-700 hidden"
-                      />
-                    </div>
-                    <Button
-                      onClick={doUpdate}
-                      className="dark:text-white dark:bg-gray-700 "
-                    >
-                      更新提示词
-                    </Button>
-                  </div>
-                  <div className="flex items-center justify-end gap-x-2 mt-2">
-                    <Button
-                      onClick={regenerate}
-                      className="flex items-center gap-x-2 dark:text-white dark:bg-gray-700"
-                    >
-                      🔄 执行匹配识别
-                    </Button>
-                  </div>
-                  <div className="flex justify-end items-center mt-2 hidden">
-                    <TipLink />
-                  </div>
-                </div>
-              )}
-
-              {/* Reference image display */}
-              <div className="flex gap-x-2 mt-2">
-                  {referenceImages.length > 0 && referenceImages.slice(0, 2).map((image, index) => (
-                    <div key={index} className="flex flex-col">
-                      <div
-                        className={classNames({
-                          "scanning relative": appState === AppState.CODING,
-                        })}
-                      >
-                        {inputMode === "image" && (
-                          <img
-                            className="w-[340px] border border-gray-200 rounded-md"
-                            src={image}
-                            alt={`Reference ${index + 1}`}
-                          />
-                        )}
-                        {inputMode === "pdf" && (
-                          <img
-                            className="w-[340px] border border-gray-200 rounded-md"
-                            src={`/input/${index}.jpeg`}
-                            alt={`Reference ${index + 1}`}
-                          />
-                        )}
-                      </div>
-                      <div className="text-gray-400 uppercase text-sm text-center mt-1">
-                        {inputMode === "pdf"
-                          ? "原始文件"
-                          : `原始图片${index + 1}`}
-                      </div>
-                    </div>
-                  ))}
-                  <div className="bg-gray-400 px-4 py-2 rounded text-sm hidden">
-                    <h2 className="text-lg mb-4 border-b border-gray-800">
-                      Console
-                    </h2>
-                    {executionConsole.map((line, index) => (
-                      <div
-                        key={index}
-                        className="border-b border-gray-400 mb-2 text-gray-600 font-mono"
-                      >
-                        {line}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-            </>
-          )}
-          {
-            <HistoryDisplay
-              history={appHistory}
-              currentVersion={currentVersion}
-              revertToVersion={(index) => {
-                if (
-                  index < 0 ||
-                  index >= appHistory.length ||
-                  !appHistory[index]
-                )
-                  return;
-                setCurrentVersion(index);
-                setGeneratedCode(appHistory[index].code);
-              }}
-              shouldDisableReverts={appState === AppState.CODING}
-            />
-          }
+                </button>
+                {isLoggedIn ? (
+                  <button onClick={handleLogout} className="text-gray-600 hover:text-blue-600">登出</button>
+                ) : (
+                  <button onClick={handleLogin} className="text-gray-600 hover:text-blue-600">登录</button>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+            <div className="lg:col-span-1">
+              <div className="bg-white rounded-lg p-6 shadow-lg">
+                <h2 className="text-2xl font-semibold mb-4 text-gray-800">控制中心</h2>
+                <nav className="space-y-2">
+                  <Link to="/" className="w-full justify-start flex items-center p-2 rounded hover:bg-gray-100">
+                    <FaHome className="mr-2" /> 主页
+                  </Link>
+                  <Link to="/file-management" className="w-full justify-start flex items-center p-2 rounded hover:bg-gray-100">
+                    <FaFile className="mr-2" /> 文件管理
+                  </Link>
+                  <Link to="/export-management" className="w-full justify-start flex items-center p-2 rounded hover:bg-gray-100">
+                    <FaFileExport className="mr-2" /> 导出管理
+                  </Link>
+                  <Link to="/model-management" className="w-full justify-start flex items-center p-2 rounded hover:bg-gray-100">
+                    <FaCubes className="mr-2" /> 模型管理
+                  </Link>
+                  <Link to="/format-management" className="w-full justify-start flex items-center p-2 rounded hover:bg-gray-100">
+                    <FaFileCode className="mr-2" /> 格式管理
+                  </Link>
+                  <Link to="/intelligent-optimization" className="w-full justify-start flex items-center p-2 rounded hover:bg-gray-100">
+                    <FaMagic className="mr-2" /> 智能优化
+                  </Link>
+                  <button className="w-full justify-start flex items-center p-2 rounded hover:bg-gray-100">
+                    <FaCog className="mr-2" /> 设置
+                  </button>
+                  <button className="w-full justify-start flex items-center p-2 rounded hover:bg-gray-100">
+                    <FaQuestionCircle className="mr-2" /> 帮助
+                  </button>
+                </nav>
+              </div>
+            </div>
+            <div className="lg:col-span-3">
+              <Routes>
+                <Route path="/" element={<MainInterface />} />
+                <Route path="/file-management" element={<FileManagement />} />
+                <Route path="/export-management" element={<ExportManagement />} />
+                <Route path="/model-management" element={<ModelManagement />} />
+                <Route path="/format-management" element={<FormatManagement />} />
+                <Route path="/intelligent-optimization" element={<IntelligentOptimization />} />
+              </Routes>
+            </div>
+          </div>
+          <SettingsDialog settings={settings} setSettings={setSettings} />
         </div>
       </div>
-
-      <main className="py-2 lg:pl-96">
-        {appState === AppState.INITIAL && (
-          <div className="flex flex-col justify-center items-center gap-y-10">
-            <ImageUpload setReferenceImages={doCreate} />
-            {/* <UrlInputSection
-              doCreate={doCreate}
-              screenshotOneApiKey={settings.screenshotOneApiKey}
-            /> */}
-            {/* <ImportCodeSection importFromCode={importFromCode} /> */}
-          </div>
-        )}
-
-        {(appState === AppState.CODING || appState === AppState.CODE_READY) && (
-          <div className="ml-4">
-            <Tabs defaultValue="desktop">
-              <div className="flex justify-between mr-8 mb-4">
-                <div className="flex items-center gap-x-2">
-                  {appState === AppState.CODE_READY && (
-                    <>
-                      <Button
-                        onClick={reset}
-                        className="flex items-center ml-4 gap-x-2 dark:text-white dark:bg-gray-700"
-                      >
-                        <FaUndo />
-                        重置
-                      </Button>
-                      <Button
-                        onClick={downloadCode}
-                        variant="secondary"
-                        className="flex items-center gap-x-2 mr-4 dark:text-white dark:bg-gray-700"
-                      >
-                        <FaDownload /> 下载
-                      </Button>
-                    </>
-                  )}
-                </div>
-                <div className="flex items-center">
-                  <TabsList>
-                    <TabsTrigger value="desktop" className="flex gap-x-2">
-                      <FaDesktop /> 图片
-                    </TabsTrigger>
-                    <TabsTrigger value="mobile" className="flex gap-x-2 hidden">
-                      <FaMobile /> JSON
-                    </TabsTrigger>
-                    <TabsTrigger value="code" className="flex gap-x-2">
-                      <FaCode />
-                      Code
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-              </div>
-              <TabsContent value="desktop">
-                <Preview code={previewCode} device="desktop" />
-              </TabsContent>
-              <TabsContent value="mobile" className="hidden">
-                <Preview code={previewCode} device="mobile" />
-              </TabsContent>
-              <TabsContent value="code">
-                <CodeTab
-                  code={previewCode}
-                  setCode={setGeneratedCode}
-                  settings={settings}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
-      </main>
-    </div>
+    </AppContext.Provider>
   );
+
 }
 
 export default App;

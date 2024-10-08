@@ -1,104 +1,60 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Input } from './ui/input';
-import { Button } from './ui/button';
-import { FaGoogle, FaGithub, FaQrcode, FaMicrosoft, FaBuilding } from 'react-icons/fa';
 
 interface AuthDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onLogin: (user: any) => void;
+  onLogin: (userData: any) => void;
 }
 
 const AuthDialog: React.FC<AuthDialogProps> = ({ isOpen, onClose, onLogin }) => {
-  const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
-  const [loginMethod, setLoginMethod] = useState<'password' | 'otp' | 'qr' | 'sso'>('password');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Implement login logic here
-    onLogin({ username: 'testuser' }); // Replace with actual user data
-  };
+  if (!isOpen) return null;
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Implement signup logic here
-    onClose();
+    // Replace this with actual authentication logic
+    const userData = { username };
+    onLogin(userData);
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>{activeTab === 'login' ? '登录' : '注册'}</DialogTitle>
-        </DialogHeader>
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'login' | 'signup')}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">登录</TabsTrigger>
-            <TabsTrigger value="signup">注册</TabsTrigger>
-          </TabsList>
-          <TabsContent value="login">
-            <form onSubmit={handleLogin}>
-              {loginMethod === 'password' && (
-                <>
-                  <Input className="mb-2" type="text" placeholder="用户名" />
-                  <Input className="mb-2" type="password" placeholder="密码" />
-                </>
-              )}
-              {loginMethod === 'otp' && (
-                <>
-                  <Input className="mb-2" type="tel" placeholder="手机号码" />
-                  <div className="flex mb-2">
-                    <Input className="flex-grow mr-2" type="text" placeholder="验证码" />
-                    <Button type="button">获取验证码</Button>
-                  </div>
-                </>
-              )}
-              {loginMethod === 'qr' && (
-                <div className="flex justify-center items-center h-40 mb-2">
-                  <FaQrcode size={100} />
-                </div>
-              )}
-              {loginMethod === 'sso' && (
-                <div className="flex flex-col space-y-2 mb-2">
-                  <Button type="button" variant="outline" className="w-full">
-                    <FaBuilding className="mr-2" /> 组织授权登录
-                  </Button>
-                  <Button type="button" variant="outline" className="w-full">
-                    <FaMicrosoft className="mr-2" /> Microsoft SSO
-                  </Button>
-                </div>
-              )}
-              <div className="flex justify-between mb-2">
-                <Button type="button" onClick={() => setLoginMethod('password')}>密码登录</Button>
-                <Button type="button" onClick={() => setLoginMethod('otp')}>短信登录</Button>
-                <Button type="button" onClick={() => setLoginMethod('qr')}>扫码登录</Button>
-                <Button type="button" onClick={() => setLoginMethod('sso')}>SSO登录</Button>
-              </div>
-              <Button className="w-full mb-2" type="submit">登录</Button>
-              <div className="flex justify-between">
-                <Button type="button" variant="outline" className="flex-1 mr-2">
-                  <FaGoogle className="mr-2" /> Google登录
-                </Button>
-                <Button type="button" variant="outline" className="flex-1">
-                  <FaGithub className="mr-2" /> GitHub登录
-                </Button>
-              </div>
-            </form>
-          </TabsContent>
-          <TabsContent value="signup">
-            <form onSubmit={handleSignup}>
-              <Input className="mb-2" type="text" placeholder="用户名" />
-              <Input className="mb-2" type="email" placeholder="邮箱" />
-              <Input className="mb-2" type="password" placeholder="密码" />
-              <Input className="mb-2" type="password" placeholder="确认密码" />
-              <Button className="w-full" type="submit">注册</Button>
-            </form>
-          </TabsContent>
-        </Tabs>
-      </DialogContent>
-    </Dialog>
+    <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white p-8 rounded-lg w-11/12 max-w-lg">
+        <h2 className="text-xl font-semibold mb-4">登录</h2>
+        <form onSubmit={handleSubmit} className="flex flex-col">
+          <label className="mb-2">
+            用户名:
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="w-full px-3 py-2 border rounded mt-1"
+            />
+          </label>
+          <label className="mb-4">
+            密码:
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="w-full px-3 py-2 border rounded mt-1"
+            />
+          </label>
+          <div className="flex justify-end space-x-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded">
+              取消
+            </button>
+            <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">
+              登录
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 };
 

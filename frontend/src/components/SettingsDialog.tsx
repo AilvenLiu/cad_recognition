@@ -6,11 +6,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { FaCog } from "react-icons/fa";
 import { EditorTheme, Settings } from "../types";
-import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import { Input } from "./ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "./ui/select";
@@ -26,9 +23,11 @@ import {
 interface Props {
   settings: Settings;
   setSettings: React.Dispatch<React.SetStateAction<Settings>>;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-function SettingsDialog({ settings, setSettings }: Props) {
+function SettingsDialog({ settings, setSettings, isOpen, onClose }: Props) {
   const handleThemeChange = (theme: EditorTheme) => {
     setSettings((s) => ({
       ...s,
@@ -36,167 +35,83 @@ function SettingsDialog({ settings, setSettings }: Props) {
     }));
   };
 
+  if (!isOpen) return null;
+
   return (
-    <Dialog>
-      <DialogTrigger>
-        <FaCog />
-      </DialogTrigger>
-      <DialogContent>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="mb-4">设置</DialogTitle>
+          <DialogTitle className="text-2xl font-semibold">设置</DialogTitle>
         </DialogHeader>
-
-        <div className="flex items-center space-x-2 hidden">
-          <Label htmlFor="image-generation">
-            <div>DALL-E Placeholder Image Generation</div>
-            <div className="font-light mt-2">
-              More fun with it but if you want to save money, turn it off.
-            </div>
-          </Label>
-          <Switch
-            id="image-generation"
-            checked={settings.isImageGenerationEnabled}
-            onCheckedChange={() =>
-              setSettings((s) => ({
-                ...s,
-                isImageGenerationEnabled: !s.isImageGenerationEnabled,
-              }))
-            }
-          />
-        </div>
-        <div className="flex flex-col space-y-4">
-          <Label htmlFor="openai-api-key">
-            <div>OpenAI API key</div>
-            <div className="font-light mt-2 leading-relaxed">
-             该key只存储在浏览器中，不会上传到服务器，请放心使用，保存后会覆盖.evn配置。
-            </div>
-          </Label>
-
-          <Input
-            id="openai-api-key"
-            placeholder="OpenAI API key"
-            value={settings.openAiApiKey || ""}
-            onChange={(e) =>
-              setSettings((s) => ({
-                ...s,
-                openAiApiKey: e.target.value,
-              }))
-            }
-          />
+        <div className="mt-6 space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="openai-api-key" className="text-lg font-medium">OpenAI API Key</Label>
+            <Input
+              id="openai-api-key"
+              placeholder="输入您的OpenAI API Key"
+              value={settings.openAiApiKey || ""}
+              onChange={(e) => setSettings((s) => ({ ...s, openAiApiKey: e.target.value }))}
+              className="w-full"
+            />
+            <p className="text-sm text-gray-500">该key只存储在浏览器中，不会上传到服务器。</p>
+          </div>
 
           {!IS_RUNNING_ON_CLOUD && (
-            <>
-              <Label htmlFor="openai-api-key">
-                <div>OpenAI Base URL (可选)</div>
-                <div className="font-light mt-2 leading-relaxed">
-                  如果不想使用默认URL，请用代理URL代替。
-                </div>
-              </Label>
-
+            <div className="space-y-2">
+              <Label htmlFor="openai-base-url" className="text-lg font-medium">OpenAI Base URL (可选)</Label>
               <Input
                 id="openai-base-url"
-                placeholder="OpenAI Base URL"
+                placeholder="输入自定义的OpenAI Base URL"
                 value={settings.openAiBaseURL || ""}
-                onChange={(e) =>
-                  setSettings((s) => ({
-                    ...s,
-                    openAiBaseURL: e.target.value,
-                  }))
-                }
+                onChange={(e) => setSettings((s) => ({ ...s, openAiBaseURL: e.target.value }))}
+                className="w-full"
               />
-            </>
+              <p className="text-sm text-gray-500">如果不想使用默认URL，请输入代理URL。</p>
+            </div>
           )}
 
-          <Accordion  type="single" collapsible className="w-full hidden">
-            <AccordionItem value="item-1">
-              <AccordionTrigger>Screenshot by URL Config</AccordionTrigger>
-              <AccordionContent>
-                <Label htmlFor="screenshot-one-api-key">
-                  <div className="leading-normal font-normal text-xs">
-                    If you want to use URLs directly instead of taking the
-                    screenshot yourself, add a ScreenshotOne API key.{" "}
-                    <a
-                      href="https://screenshotone.com?via=screenshot-to-code"
-                      className="underline"
-                      target="_blank"
-                    >
-                      Get 100 screenshots/mo for free.
-                    </a>
-                  </div>
-                </Label>
-
-                <Input
-                  id="screenshot-one-api-key"
-                  className="mt-2"
-                  placeholder="ScreenshotOne API key"
-                  value={settings.screenshotOneApiKey || ""}
-                  onChange={(e) =>
-                    setSettings((s) => ({
-                      ...s,
-                      screenshotOneApiKey: e.target.value,
-                    }))
-                  }
-                />
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-
           <Accordion type="single" collapsible className="w-full">
-            <AccordionItem value="item-1">
-              <AccordionTrigger>主题设置</AccordionTrigger>
-              <AccordionContent className="space-y-4 flex flex-col">
+            <AccordionItem value="theme-settings">
+              <AccordionTrigger className="text-lg font-medium">主题设置</AccordionTrigger>
+              <AccordionContent className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="app-theme">
-                    <div>应用主题</div>
-                  </Label>
-                  <div>
-                    <button
-                      className="flex rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50t"
-                      onClick={() => {
-                        document
-                          .querySelector("div.mt-2")
-                          ?.classList.toggle("dark"); // enable dark mode for sidebar
-                        document.body.classList.toggle("dark");
-                        document
-                          .querySelector('div[role="presentation"]')
-                          ?.classList.toggle("dark"); // enable dark mode for upload container
-                      }}
-                    >
-                      切换黑暗模式
-                    </button>
-                  </div>
+                  <Label htmlFor="app-theme" className="text-base">应用主题</Label>
+                  <button
+                    className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 rounded-md transition-colors hover:bg-gray-300 dark:hover:bg-gray-600"
+                    onClick={() => {
+                      document.body.classList.toggle("dark");
+                      // Add logic to save theme preference
+                    }}
+                  >
+                    切换黑暗模式
+                  </button>
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="editor-theme">
-                    <div>
-                      编辑器主题
-                    </div>
-                  </Label>
-                  <div>
-                    <Select // Use the custom Select component here
-                      name="editor-theme"
-                      value={settings.editorTheme}
-                      onValueChange={(value) =>
-                        handleThemeChange(value as EditorTheme)
-                      }
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        {capitalize(settings.editorTheme)}
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cobalt">Cobalt</SelectItem>
-                        <SelectItem value="espresso">Espresso</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <Label htmlFor="editor-theme" className="text-base">编辑器主题</Label>
+                  <Select
+                    name="editor-theme"
+                    value={settings.editorTheme}
+                    onValueChange={(value) => handleThemeChange(value as EditorTheme)}
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      {capitalize(settings.editorTheme)}
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cobalt">Cobalt</SelectItem>
+                      <SelectItem value="espresso">Espresso</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
         </div>
-
         <DialogFooter>
-          <DialogClose>保存</DialogClose>
+          <DialogClose asChild>
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+              保存
+            </button>
+          </DialogClose>
         </DialogFooter>
       </DialogContent>
     </Dialog>

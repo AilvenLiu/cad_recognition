@@ -1,2 +1,4 @@
 ttkthemes
+PyQt6 
+matplotlib
 # brew install python-tk
